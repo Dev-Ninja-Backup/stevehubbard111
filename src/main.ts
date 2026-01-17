@@ -2,12 +2,23 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import pkg from '../package.json';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
-  // Global prefix (removed trailing slash)
+  // Global prefix 
   app.setGlobalPrefix('api/v1'); 
+  // after app creation
+    const config = new DocumentBuilder()
+      .setTitle('Rabbt Platform API')
+      .setDescription('Insights API for Insights.rabbt.org')
+      .setVersion(pkg.version)
+      .addBearerAuth()
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/v1/docs', app, document);
 
   // Enable CORS
   app.enableCors({

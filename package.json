@@ -1,5 +1,5 @@
 {
-  "name": "stevehubbard111-backend",
+  "name": "Rabbt Platform API",
   "version": "0.0.1",
   "description": "",
   "author": "",
@@ -21,8 +21,10 @@
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "^11.2.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "cookie-parser": "^1.4.7",
