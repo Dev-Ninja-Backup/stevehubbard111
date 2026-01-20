@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import pkg from '../package.json';
+import pkg from '../package.json' with {type:'json'}
 
 @Injectable()
 export class AppService {

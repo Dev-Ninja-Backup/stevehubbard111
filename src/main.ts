@@ -1,9 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { AppModule } from './app.module';
+
 import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import pkg from '../package.json';
+import pkg from '../package.json' with { type: 'json' };
+import { AppModule } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -11,7 +12,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1'); 
   // after app creation
     const config = new DocumentBuilder()
-      .setTitle('Rabbt Platform API')
+      .setTitle(pkg.name)
       .setDescription('Insights API for Insights.rabbt.org')
       .setVersion(pkg.version)
       .addBearerAuth()
