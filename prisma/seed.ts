@@ -1,7 +1,7 @@
-import 'dotenv/config'; // loads .env
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "./generated/prisma/client.js";
-import {hashPassword} from '../src/utils/password.util.js'
+import 'dotenv/config';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient, Roles } from './generated/prisma/client.js';
+import { hashPassword } from '../src/utils/password.util.js';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -9,58 +9,81 @@ if (!connectionString) {
   throw new Error('❌ DATABASE_URL must be set in environment variables.');
 }
 
-// Create Prisma client with PostgreSQL adapter
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
   log: [{ emit: 'event', level: 'error' }],
 });
 
 async function main() {
-  console.log('🌱 Starting database seed with PrismaPg adapter...');
+  console.log('🌱 Seeding ADMIN only...');
 
-  // 1️⃣ Seed Roles
-  const roles = ['ADMIN', 'USER'];
-  for (const name of roles) {
-    await prisma.role.upsert({
-      where: { name },
-      update: {}, // do nothing if exists
-      create: { name },
-    });
-  }
-  console.log('✅ Roles seeded');
+  // --------------------------------------
+  // 1️⃣ SecuritySetting (required by User)
+  // --------------------------------------
+  const securitySetting =
+    (await prisma.securitySetting.findFirst()) ??
+    (await prisma.securitySetting.create({
+      data: {
+        twoFactorAuth: false,
+        passwordMinLength: 8,
+        maxLoginAttempts: 5,
+        accountLockoutDuration: 30,
+      },
+    }));
 
-  // 2️⃣ Seed Admin User safely
+  console.log(`✅ SecuritySetting ready (ID: ${securitySetting.id})`);
+
+  // --------------------------------------
+  // 2️⃣ ADMIN Role only
+  // --------------------------------------
+  const existingRole = await prisma.role.findFirst({
+    where: { name: Roles.ADMIN },
+  });
+
+  const adminRole = existingRole ?? (await prisma.role.create({
+    data: { name: Roles.ADMIN },
+  }));
+
+  console.log(`✅ ADMIN role ready (ID: ${adminRole.id})`);
+
+  // --------------------------------------
+  // 3️⃣ Admin User
+  // --------------------------------------
   const adminEmail = 'admin@insights.local';
-  const adminPassword = 'admin123'; // change later
-  const adminPasswordHash = await hashPassword(adminPassword);
 
-  // Check if admin already exists
   const existingAdmin = await prisma.user.findUnique({
     where: { email: adminEmail },
   });
 
   if (existingAdmin) {
-    console.log(`ℹ️ Admin user already exists: ${adminEmail} (ID: ${existingAdmin.id})`);
-  } else {
-    const newAdmin = await prisma.user.create({
-      data: {
-        name: 'System Admin',
-        email: adminEmail,
-        passwordHash: adminPasswordHash,
-        role: {
-          connect: { name: 'ADMIN' },
-        },
-        plan:"Premmium"
+    console.log(`ℹ️ Admin already exists (ID: ${existingAdmin.id})`);
+    return;
+  }
+
+  const adminPasswordHash = await hashPassword('admin123'); // CHANGE LATER
+
+  const admin = await prisma.user.create({
+    data: {
+      name: 'System Admin',
+      email: adminEmail,
+      passwordHash: adminPasswordHash,
+
+      role: {
+        connect: { id: adminRole.id },
       },
 
-    });
-    console.log(`✅ Admin user created: ${adminEmail} (ID: ${newAdmin.id})`);
-  }
+      securitySetting: {
+        connect: { id: securitySetting.id },
+      },
+    },
+  });
+
+  console.log(`✅ Admin user created (ID: ${admin.id})`);
 }
 
 main()
-  .catch((e) => {
-    console.error('❌ Seed failed:', e);
+  .catch((err) => {
+    console.error('❌ Admin seed failed:', err);
     process.exit(1);
   })
   .finally(async () => {

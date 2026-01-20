@@ -1,10 +1,36 @@
 model User {
-  id           Int     @id @default(autoincrement())
-  name         String
-  email        String  @unique
-  passwordHash String
-  roleId       Int
-  role         Role    @relation(fields: [roleId], references: [id])
-  plan         String
-}
+  id                 Int       @id @default(autoincrement())
+  email              String    @unique @db.VarChar(255)
+  name               String    @db.VarChar(100)
+  passwordHash       String    @db.VarChar(255)
+  
+  // Account status
+  status             UserStatus @default(ACTIVE)
+  emailVerified      Boolean   @default(false)
+  emailVerifiedAt    DateTime?
+  
+  // Security
+  twoFactorSecret    String?
+  // isTwoFactorEnabled Boolean   @default(false)
+  s_id               Int
+  securitySetting    SecuritySetting    @relation(fields:[s_id], references: [id])
+  //
+  lastLogin          DateTime?
+  lastLoginIp        String?   @db.VarChar(45)
+  // Preferences
+  timezone           String?   @db.VarChar(50)
+  language           String    @default("en") @db.VarChar(10)
+  
+  // Timestamps
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  
+  // Relations
+  roleId             Int
+  role               Role    @relation(fields: [roleId], references: [id])
+  sessions           Session[]
 
+  
+  @@index([email])
+  @@index([createdAt])
+}

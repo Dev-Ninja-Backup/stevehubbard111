@@ -43,6 +43,26 @@ export { Prisma }
  */
 export type Role = Prisma.RoleModel
 /**
+ * Model Session
+ * 
+ */
+export type Session = Prisma.SessionModel
+/**
+ * Model PlatformConfig
+ * 
+ */
+export type PlatformConfig = Prisma.PlatformConfigModel
+/**
+ * Model Backup
+ * 
+ */
+export type Backup = Prisma.BackupModel
+/**
+ * Model SecuritySetting
+ * 
+ */
+export type SecuritySetting = Prisma.SecuritySettingModel
+/**
  * Model User
  * 
  */

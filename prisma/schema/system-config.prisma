@@ -1,0 +1,41 @@
+// 
+model PlatformConfig {
+  id                        Int      @id @default(autoincrement())
+  platformName              String   @db.VarChar(100)
+  supportEmail              String   @db.VarChar(255)
+  maxFreeUsersPortfolioSize Int      @default(5)
+  sessionTimeout            Int      @default(30) // minutes
+  maintenanceMode           Boolean  @default(false)
+  allowNewRegistrations     Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@map("platform_configs")
+}
+
+// 
+model Backup {
+  id         Int      @id @default(autoincrement())
+  backupName String   @db.VarChar(255)
+  filePath   String   @db.VarChar(500)
+  size       BigInt
+  createdAt DateTime @default(now())
+
+  @@map("backups")
+}
+
+// SECURITY SETTINGS
+model SecuritySetting {
+  id                      Int      @id @default(autoincrement())
+  twoFactorAuth           Boolean  @default(false)
+  passwordMinLength       Int      @default(8)
+  maxLoginAttempts        Int      @default(5)
+  accountLockoutDuration  Int      @default(30) // minutes
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  //relations
+  users                   User[]
+
+
+  @@map("security_settings")
+}

@@ -52,6 +52,10 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   Role: 'Role',
+  Session: 'Session',
+  PlatformConfig: 'PlatformConfig',
+  Backup: 'Backup',
+  SecuritySetting: 'SecuritySetting',
   User: 'User'
 } as const
 
@@ -79,13 +83,75 @@ export const RoleScalarFieldEnum = {
 export type RoleScalarFieldEnum = (typeof RoleScalarFieldEnum)[keyof typeof RoleScalarFieldEnum]
 
 
+export const SessionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  token: 'token',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
+
+
+export const PlatformConfigScalarFieldEnum = {
+  id: 'id',
+  platformName: 'platformName',
+  supportEmail: 'supportEmail',
+  maxFreeUsersPortfolioSize: 'maxFreeUsersPortfolioSize',
+  sessionTimeout: 'sessionTimeout',
+  maintenanceMode: 'maintenanceMode',
+  allowNewRegistrations: 'allowNewRegistrations',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PlatformConfigScalarFieldEnum = (typeof PlatformConfigScalarFieldEnum)[keyof typeof PlatformConfigScalarFieldEnum]
+
+
+export const BackupScalarFieldEnum = {
+  id: 'id',
+  backupName: 'backupName',
+  filePath: 'filePath',
+  size: 'size',
+  createdAt: 'createdAt'
+} as const
+
+export type BackupScalarFieldEnum = (typeof BackupScalarFieldEnum)[keyof typeof BackupScalarFieldEnum]
+
+
+export const SecuritySettingScalarFieldEnum = {
+  id: 'id',
+  twoFactorAuth: 'twoFactorAuth',
+  passwordMinLength: 'passwordMinLength',
+  maxLoginAttempts: 'maxLoginAttempts',
+  accountLockoutDuration: 'accountLockoutDuration',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SecuritySettingScalarFieldEnum = (typeof SecuritySettingScalarFieldEnum)[keyof typeof SecuritySettingScalarFieldEnum]
+
+
 export const UserScalarFieldEnum = {
   id: 'id',
-  name: 'name',
   email: 'email',
+  name: 'name',
   passwordHash: 'passwordHash',
-  roleId: 'roleId',
-  plan: 'plan'
+  status: 'status',
+  emailVerified: 'emailVerified',
+  emailVerifiedAt: 'emailVerifiedAt',
+  twoFactorSecret: 'twoFactorSecret',
+  s_id: 's_id',
+  lastLogin: 'lastLogin',
+  lastLoginIp: 'lastLoginIp',
+  timezone: 'timezone',
+  language: 'language',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  roleId: 'roleId'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -105,4 +171,12 @@ export const QueryMode = {
 } as const
 
 export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
+
+
+export const NullsOrder = {
+  first: 'first',
+  last: 'last'
+} as const
+
+export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
 
