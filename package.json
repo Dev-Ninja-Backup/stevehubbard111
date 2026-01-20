@@ -20,9 +20,9 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "docker:start": "bash ./scripts/start.sh",
     "docker:stop": "docker compose -f docker-compose.dev.yml down",
-    "docker:prisma_fix_migrate": "docker compose exec ./docker-compose.dev.yml app npx prisma migrate resolve --applied 'migration_file'",
-    "docker:prisma_reset": " docker compose exec -f docker-compose.dev.yml app npx prisma migrate reset",
-    "docker:prisma_migrate": "docker compose exec -f docker-compose.dev.yml app npx prisma migrate dev"
+    "docker:prisma_fix_migrate": "docker compose -f docker-compose.dev.yml exec app npx prisma migrate resolve --applied 'migration_file'",
+    "docker:prisma_reset": "docker compose -f docker-compose.dev.yml exec app npx prisma migrate reset --force",
+    "docker:prisma_migrate": "docker compose -f docker-compose.dev.yml exec app npx prisma migrate dev"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

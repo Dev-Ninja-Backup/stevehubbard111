@@ -50,7 +50,9 @@ async function main() {
         role: {
           connect: { name: 'ADMIN' },
         },
+        plan:"Premmium"
       },
+
     });
     console.log(`✅ Admin user created: ${adminEmail} (ID: ${newAdmin.id})`);
   }
