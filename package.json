@@ -5,7 +5,6 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
-  "type": "module",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -18,7 +17,12 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "docker:start": "bash ./scripts/start.sh",
+    "docker:stop": "docker compose -f docker-compose.dev.yml down",
+    "docker:prisma_fix_migrate": "docker compose exec ./docker-compose.dev.yml app npx prisma migrate resolve --applied 'migration_file'",
+    "docker:prisma_reset": " docker compose exec -f docker-compose.dev.yml app npx prisma migrate reset",
+    "docker:prisma_migrate": "docker compose exec -f docker-compose.dev.yml app npx prisma migrate dev"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -61,6 +65,7 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },

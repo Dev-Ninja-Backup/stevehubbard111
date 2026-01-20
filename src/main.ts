@@ -3,7 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 
 import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import pkg from '../package.json' with { type: 'json' };
+import pkg from '../package.json';
 import { AppModule } from './app.module.js';
 
 async function bootstrap() {
