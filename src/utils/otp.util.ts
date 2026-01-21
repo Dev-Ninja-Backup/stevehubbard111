@@ -1,13 +1,13 @@
+import { Injectable } from '@nestjs/common';
 import crypto from 'crypto';
 import { RedisService } from 'src/config/redis/redis.service';
 
 
+@Injectable()
 export class OtpUtil {
   constructor(private readonly redis: RedisService) {}
 
-  // ----------------------------------
   // Generate OTP
-  // ----------------------------------
   async generate(
     userId: number,
     purpose: string,
@@ -17,6 +17,8 @@ export class OtpUtil {
     const hash = this.hashOtp(otp);
 
     const key = this.key(userId, purpose);
+   console.log(key, hash, otp);
+   console.log('Redis instance:', this.redis);
 
     await this.redis.set(key, hash, ttlSeconds);
 

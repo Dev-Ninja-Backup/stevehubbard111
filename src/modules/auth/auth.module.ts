@@ -7,6 +7,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RedisModule } from 'src/config/redis/redis.module';
 import { PrismaService } from 'src/config/datasource/prisma.service';
 import { JwtStrategy } from 'src/stretegy/jwt.stretegy';
+import { OtpUtil } from 'src/utils/otp.util';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { JwtStrategy } from 'src/stretegy/jwt.stretegy';
   //     inject: [ConfigService],
   //   }),
   ],
-  providers: [AuthService, JwtStrategy, PrismaService],
+  providers: [AuthService, JwtStrategy, PrismaService, OtpUtil],
   controllers: [AuthController],
   exports: [AuthService],
 })

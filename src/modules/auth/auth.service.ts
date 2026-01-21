@@ -6,77 +6,108 @@ import { generateTOTPSecret, verifyTOTP, getTOTPAuthUrl } from 'src/utils/totp.u
 import { RegisterDto } from './dto/register.dto';
 import { Roles, UserStatus } from 'prisma/generated/prisma/enums';
 import * as speakeasy from 'speakeasy';
+import { OtpUtil } from 'src/utils/otp.util';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
+    private readonly otpUtil: OtpUtil,
   ) {}
 
   // REGISTER
   async register(dto: RegisterDto) {
-    // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
+      return this.prisma.$transaction(async (tx) => {
+        // Check if user already exists
+        const existingUser = await tx.user.findUnique({
+          where: { email: dto.email },
+        });
 
-    if (existingUser) {
-      throw new ConflictException('Email already registered');
+        if (existingUser) {
+          throw new ConflictException('Email already registered');
+        }
+
+        // Fetch security settings (required relation)
+        const securitySetting = await tx.securitySetting.findFirst();
+
+        if (!securitySetting) {
+          throw new NotFoundException('Security settings not found');
+        }
+
+        // Fetch USER role
+        const role = await tx.role.findFirst({
+          where: { name: Roles.USER },
+        });
+
+        if (!role) {
+          throw new NotFoundException('User role not found');
+        }
+
+        // Hash password
+        const passwordHash = await hashPassword(dto.password);
+
+        // Create user
+        const user = await tx.user.create({
+          data: {
+            email: dto.email,
+            name: dto.name,
+            passwordHash,
+            status: UserStatus.ACTIVE,
+            emailVerified: false,
+
+            role: {
+              connect: { id: role.id },
+            },
+
+            securitySetting: {
+              connect: { id: securitySetting.id },
+            },
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            status: true,
+            createdAt: true,
+          },
+        });
+
+        // Generate OTP (outside DB, but tied to user)
+        const otp = await this.otpUtil.generate(user.id, 'register');
+
+        // Return result
+        return {
+          user,
+          otp, // send via email/SMS later
+        };
+      });
     }
-    // security settings 
-    const s = await this.prisma.securitySetting.findFirst({})
-    if(!s){
-        throw new NotFoundException("Security Settings not found")
+
+ //  verify otp
+ async verifyOtp(email:string , otp:string, purpose:string){
+    const user = await this.singleUser(email);
+    const isValid = await this.otpUtil.verify(user.id, purpose, otp);
+    if(!isValid){
+        throw new BadRequestException("Otp is not valid")
     }
-    // roles
-    const r = await this.prisma.role.findFirst({
-       where:{
-          name:Roles.USER
-       }
-    })
-    if(!r){
-        throw new NotFoundException("Role not found")
-    }
-    // Hash password
-    const passwordHash = await hashPassword(dto.password);
-      console.log(dto, passwordHash);
-    // Create user
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        name: dto.name,
-        passwordHash,
-        status: UserStatus.ACTIVE,
-        emailVerified: false,
-        role: {
-          connect: { id: r.id },
+    await this.prisma.user.update({
+        where:{
+           id:user.id
         },
-        securitySetting:{
-            connect:{
-               id : s.id,
-               twoFactorAuth:s.twoFactorAuth
-            }
-        } 
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        status: true,
-        createdAt: true,
-        securitySetting:true
-      },
-    });
-    console.log(user);
+        data:{
+          emailVerified :true,
+          emailVerifiedAt: new Date()
+        }
+    })
     // Issue tokens
-    const tokens = this.issueTokens(user.id);
-  
+    const tokens = await this.issueTokens(user.id);
+    // 
     return {
-      user,
-      ...tokens,
-    };
-  }
+        massage:"Your email verified successfully",
+        tokens
+    }
+ }
 
 
   // LOGIN
@@ -384,4 +415,28 @@ export class AuthService {
       expiresIn: 900, // 15 minutes in seconds
     };
   }
+   
+  // find single user
+  private async singleUser(email?:string, userId?:number){
+         if(!email && !userId){
+            throw new NotFoundException("Email or user id required")
+         }
+        //  
+        const user = await this.prisma.user.findFirst({
+            where:{
+                OR:[
+                    {email},
+                    {id:userId}
+                ]
+            }
+        })
+        if(!user){
+            throw new NotFoundException("User Not found")
+        }
+       return user;
+
+  } 
+
+
+
 }

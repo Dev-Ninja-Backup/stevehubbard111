@@ -7,6 +7,7 @@ import { PrismaService } from './config/datasource/prisma.service.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { HealthModule } from './health/health.module.js';
+import { OtpUtil } from './utils/otp.util';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { HealthModule } from './health/health.module.js';
   providers: [
     AppService,
     PrismaService,
+    OtpUtil
   ],
 })
 export class AppModule {}

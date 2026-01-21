@@ -20,6 +20,7 @@ import { Enable2FADto } from './dto/enable-2fa.dto';
 import { CurrentUser } from 'src/decorators/currentuser.decorator';
 import { IUser } from 'src/types';
 import { RefreshTokenDto } from './dto/refreshtoken.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -43,6 +44,32 @@ export class AuthController {
       return ApiResponses.error(err.message || 'Registration failed', {
         code: err.code || 'REGISTRATION_FAILED',
         statusCode: err.status || 400,
+      });
+    }
+  }
+  // 
+  
+  @Post('verify')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify OTP code' })
+  @ApiResponse({ status: 200, description: 'OTP verified successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired OTP' })
+  async verifyOtp(@Body() dto: VerifyOtpDto) {
+    try {
+      const res = await this.authService.verifyOtp(dto.email, dto.otp, dto.purpose);
+      return ApiResponses.success(
+         res,
+        'OTP verified successfully'
+      );
+    } catch (err: any) {
+      console.error('OTP verification error:', err);
+
+      return ApiResponses.error(err.message || 'OTP verification failed', {
+        code: err.code || 'OTP_INVALID',
+        statusCode: err.status || 401,
+        details: err.details || null,
+        traceId: String(dto.email),
       });
     }
   }
