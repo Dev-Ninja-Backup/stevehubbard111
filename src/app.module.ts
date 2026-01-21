@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { HealthModule } from './health/health.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { AuthModule } from './modules/auth/auth.module';
+import { RedisModule } from './config/redis/redis.module.js';
 
 
 @Module({
@@ -11,7 +13,9 @@ import { AppService } from './app.service.js';
            isGlobal:true,
            envFilePath:['.env', '.env.local']  
       }),
-      HealthModule
+      HealthModule,
+      AuthModule,
+      RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],
