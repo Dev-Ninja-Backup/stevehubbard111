@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Roles } from './generated/prisma/client.js';
+import { PrismaClient, Roles } from './generated/prisma/client';
 import { hashPassword } from '../src/utils/password.util.js';
 
 const connectionString = process.env.DATABASE_URL;
@@ -15,11 +15,11 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  console.log('🌱 Seeding ADMIN only...');
+  console.log('🌱 Seeding roles and admin user...');
 
-  // --------------------------------------
-  // 1️⃣ SecuritySetting (required by User)
-  // --------------------------------------
+  // ----------------------
+  // 1️⃣ SecuritySetting
+  // ----------------------
   const securitySetting =
     (await prisma.securitySetting.findFirst()) ??
     (await prisma.securitySetting.create({
@@ -33,52 +33,40 @@ async function main() {
 
   console.log(`✅ SecuritySetting ready (ID: ${securitySetting.id})`);
 
-  // --------------------------------------
-  // 2️⃣ ADMIN Role only
-  // --------------------------------------
-  const existingRole = await prisma.role.findFirst({
-    where: { name: Roles.ADMIN },
-  });
+  // ----------------------
+  // 2️⃣ Roles
+  // ----------------------
+  const roleMap: Record<string, number> = {};
+  for (const name of [Roles.ADMIN, Roles.USER]) {
+    const role = (await prisma.role.findFirst({ where: { name } })) ??
+      (await prisma.role.create({ data: { name } }));
+    roleMap[name] = role.id;
+    console.log(`✅ Role ready: ${name} (ID: ${role.id})`);
+  }
 
-  const adminRole = existingRole ?? (await prisma.role.create({
-    data: { name: Roles.ADMIN },
-  }));
-
-  console.log(`✅ ADMIN role ready (ID: ${adminRole.id})`);
-
-  // --------------------------------------
+  // ----------------------
   // 3️⃣ Admin User
-  // --------------------------------------
+  // ----------------------
   const adminEmail = 'admin@insights.local';
-
-  const existingAdmin = await prisma.user.findUnique({
-    where: { email: adminEmail },
-  });
+  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
 
   if (existingAdmin) {
     console.log(`ℹ️ Admin already exists (ID: ${existingAdmin.id})`);
-    return;
+  } else {
+    const adminPasswordHash = await hashPassword('admin123'); // CHANGE LATER
+    const admin = await prisma.user.create({
+      data: {
+        name: 'System Admin',
+        email: adminEmail,
+        passwordHash: adminPasswordHash,
+        role: { connect: { id: roleMap[Roles.ADMIN] } },
+        securitySetting: { connect: { id: securitySetting.id } },
+        status: 'ACTIVE',
+        emailVerified: false,
+      },
+    });
+    console.log(`✅ Admin user created (ID: ${admin.id})`);
   }
-
-  const adminPasswordHash = await hashPassword('admin123'); // CHANGE LATER
-
-  const admin = await prisma.user.create({
-    data: {
-      name: 'System Admin',
-      email: adminEmail,
-      passwordHash: adminPasswordHash,
-
-      role: {
-        connect: { id: adminRole.id },
-      },
-
-      securitySetting: {
-        connect: { id: securitySetting.id },
-      },
-    },
-  });
-
-  console.log(`✅ Admin user created (ID: ${admin.id})`);
 }
 
 main()

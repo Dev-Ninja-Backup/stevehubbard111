@@ -1,44 +1,18 @@
-/*
-  Warnings:
-
-  - The `name` column on the `Role` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - You are about to drop the column `plan` on the `User` table. All the data in the column will be lost.
-  - You are about to alter the column `name` on the `User` table. The data in that column could be lost. The data in that column will be cast from `Text` to `VarChar(100)`.
-  - You are about to alter the column `email` on the `User` table. The data in that column could be lost. The data in that column will be cast from `Text` to `VarChar(255)`.
-  - You are about to alter the column `passwordHash` on the `User` table. The data in that column could be lost. The data in that column will be cast from `Text` to `VarChar(255)`.
-  - Added the required column `s_id` to the `User` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `updatedAt` to the `User` table without a default value. This is not possible if the table is not empty.
-
-*/
 -- CreateEnum
 CREATE TYPE "Roles" AS ENUM ('USER', 'ADMIN');
 
 -- CreateEnum
 CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'SUSPENDED', 'DELETED');
 
--- DropIndex
-DROP INDEX "Role_name_key";
+-- CreateTable
+CREATE TABLE "roles" (
+    "id" SERIAL NOT NULL,
+    "name" "Roles" NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
--- AlterTable
-ALTER TABLE "Role" DROP COLUMN "name",
-ADD COLUMN     "name" "Roles" NOT NULL DEFAULT 'USER';
-
--- AlterTable
-ALTER TABLE "User" DROP COLUMN "plan",
-ADD COLUMN     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-ADD COLUMN     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "emailVerifiedAt" TIMESTAMP(3),
-ADD COLUMN     "language" VARCHAR(10) NOT NULL DEFAULT 'en',
-ADD COLUMN     "lastLogin" TIMESTAMP(3),
-ADD COLUMN     "lastLoginIp" VARCHAR(45),
-ADD COLUMN     "s_id" INTEGER NOT NULL,
-ADD COLUMN     "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
-ADD COLUMN     "timezone" VARCHAR(50),
-ADD COLUMN     "twoFactorSecret" TEXT,
-ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL,
-ALTER COLUMN "name" SET DATA TYPE VARCHAR(100),
-ALTER COLUMN "email" SET DATA TYPE VARCHAR(255),
-ALTER COLUMN "passwordHash" SET DATA TYPE VARCHAR(255);
+    CONSTRAINT "roles_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "Session" (
@@ -92,6 +66,31 @@ CREATE TABLE "security_settings" (
     CONSTRAINT "security_settings_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "User" (
+    "id" SERIAL NOT NULL,
+    "email" VARCHAR(255) NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "passwordHash" VARCHAR(255) NOT NULL,
+    "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
+    "emailVerified" BOOLEAN NOT NULL DEFAULT false,
+    "emailVerifiedAt" TIMESTAMP(3),
+    "twoFactorSecret" TEXT,
+    "s_id" INTEGER NOT NULL,
+    "lastLogin" TIMESTAMP(3),
+    "lastLoginIp" VARCHAR(45),
+    "timezone" VARCHAR(50),
+    "language" VARCHAR(10) NOT NULL DEFAULT 'en',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "roleId" INTEGER NOT NULL,
+
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "roles_name_key" ON "roles"("name");
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Session_token_key" ON "Session"("token");
 
@@ -105,6 +104,9 @@ CREATE INDEX "Session_token_idx" ON "Session"("token");
 CREATE INDEX "Session_expiresAt_idx" ON "Session"("expiresAt");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
 CREATE INDEX "User_email_idx" ON "User"("email");
 
 -- CreateIndex
@@ -115,3 +117,6 @@ ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId"
 
 -- AddForeignKey
 ALTER TABLE "User" ADD CONSTRAINT "User_s_id_fkey" FOREIGN KEY ("s_id") REFERENCES "security_settings"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "User" ADD CONSTRAINT "User_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

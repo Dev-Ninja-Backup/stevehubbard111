@@ -28,6 +28,8 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.5",
     "@prisma/adapter-pg": "^7.2.0",
@@ -38,9 +40,11 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.3",
     "dotenv-expand": "^12.0.3",
+    "passport-jwt": "^4.0.1",
     "redis": "^5.10.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "speakeasy": "^2.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

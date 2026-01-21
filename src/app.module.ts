@@ -1,23 +1,32 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { HealthModule } from './health/health.module.js';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 import { AuthModule } from './modules/auth/auth.module';
 import { RedisModule } from './config/redis/redis.module.js';
-
+import { PrismaService } from './config/datasource/prisma.service.js';
+import { AppController } from './app.controller.js';
+import { AppService } from './app.service.js';
+import { HealthModule } from './health/health.module.js';
 
 @Module({
   imports: [
-      ConfigModule.forRoot({
-           isGlobal:true,
-           envFilePath:['.env', '.env.local']  
-      }),
-      HealthModule,
-      AuthModule,
-      RedisModule,
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env', '.env.local'],
+    }),
+    JwtModule.register({
+      global: true,
+      secret: process.env.JWT_SECRET || 'changeme',
+      signOptions: { expiresIn: '7d' },
+    }),
+    HealthModule,
+    AuthModule,
+    RedisModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    PrismaService,
+  ],
 })
 export class AppModule {}
