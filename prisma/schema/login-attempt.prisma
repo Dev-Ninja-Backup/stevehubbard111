@@ -1,0 +1,11 @@
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  email     String   @db.VarChar(255)
+  ipAddress String   @db.VarChar(45)
+  userAgent String?  @db.Text
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+}

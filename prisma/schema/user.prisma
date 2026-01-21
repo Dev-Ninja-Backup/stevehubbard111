@@ -29,7 +29,8 @@ model User {
   roleId             Int
   role               Role    @relation(fields: [roleId], references: [id])
   sessions           Session[]
-
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
   
   @@index([email])
   @@index([createdAt])
