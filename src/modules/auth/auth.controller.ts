@@ -6,8 +6,11 @@ import {
   HttpStatus,
   Get,
   UseGuards,
+  Param,
+  Delete,
+  Req,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiParam } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -20,13 +23,20 @@ import { Enable2FADto } from './dto/enable-2fa.dto';
 import { CurrentUser } from 'src/decorators/currentuser.decorator';
 import { IUser } from 'src/types';
 import { RefreshTokenDto } from './dto/refreshtoken.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ResendVerificationDto, VerifyEmailDto, VerifyOtpDto } from './dto/verify-otp.dto';
+import { RequestPasswordResetDto, ResetPasswordDto } from './dto/password-reset.dto';
+import { PrismaService } from 'src/config/datasource/prisma.service';
+import { Request }  from "express" 
 
 @ApiTags('Authentication')
 @Controller('auth')
 @UseGuards(JwtAuthGuard)
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly prisma: PrismaService
+
+  ) {}
 
   // REGISTER (Public)
   @Public()
@@ -83,9 +93,15 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 403, description: 'Two-factor authentication required' })
-  async login(@Body() dto: LoginDto) {
+  async login(
+    @Body() dto: LoginDto,
+    @Req() req: Request,
+) {
     try {
-      const result = await this.authService.login(dto.email, dto.password);
+      const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+      const userAgent = req.headers['user-agent'];
+      // 
+      const result = await this.authService.login(dto.email, dto.password, ipAddress, userAgent);
 
       if ('requires2FA' in result && result.requires2FA) {
         return ApiResponses.error('Two-factor authentication required', {
@@ -191,7 +207,208 @@ export class AuthController {
       });
     }
   }
+  //  
+   // -------------------------
+  // EMAIL VERIFICATION
+  // -------------------------
 
+  @Public()
+  @Post('verify-email')
+  @ApiOperation({ summary: 'Verify email address using verification token' })
+  @ApiBody({ type: VerifyEmailDto })
+  @ApiResponse({ status: 200, description: 'Email verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    try {
+      const result = await this.authService.verifyEmail(dto.token);
+      return ApiResponses.success(result, 'Email verified successfully');
+    } catch (err: any) {
+      return ApiResponses.error(err.message, {
+        code: 'EMAIL_VERIFICATION_FAILED',
+        statusCode: 400,
+      });
+    }
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @ApiOperation({ summary: 'Resend email verification link' })
+  @ApiBody({ type: ResendVerificationDto })
+  @ApiResponse({ status: 200, description: 'Verification email sent' })
+  async resendVerification(@Body() dto: ResendVerificationDto) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { email: dto.email },
+      });
+      if (user) {
+        await this.authService.sendVerificationEmail(user.id);
+      }
+      return ApiResponses.success(null, 'Verification email sent');
+    } catch {
+      // Prevent email enumeration
+      return ApiResponses.success(null, 'Verification email sent');
+    }
+  }
+
+  // -------------------------
+  // PASSWORD RESET
+  // -------------------------
+
+  @Public()
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Request password reset email' })
+  @ApiBody({ type: RequestPasswordResetDto })
+  @ApiResponse({ status: 200, description: 'Password reset email sent' })
+  async forgotPassword(@Body() dto: RequestPasswordResetDto) {
+    try {
+      const result = await this.authService.requestPasswordReset(dto.email);
+      return ApiResponses.success(result, 'Password reset email sent');
+    } catch {
+      // Prevent email enumeration
+      return ApiResponses.success(
+        { message: 'If the email exists, a reset link has been sent' },
+        'Password reset email sent',
+      );
+    }
+  }
+
+  @Public()
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password using reset token' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({ status: 200, description: 'Password reset successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    try {
+      const result = await this.authService.resetPassword(
+        dto.token,
+        dto.newPassword,
+      );
+      return ApiResponses.success(result, 'Password reset successfully');
+    } catch (err: any) {
+      return ApiResponses.error(err.message, {
+        code: 'PASSWORD_RESET_FAILED',
+        statusCode: 400,
+      });
+    }
+  }
+
+  
+  // -------------------------
+  // SESSION MANAGEMENT
+  // -------------------------
+
+  @Get('sessions')
+  @Auth()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get active sessions for current user' })
+  @ApiResponse({ status: 200, description: 'Sessions retrieved successfully' })
+  async getMySessions(@CurrentUser() user: IUser) {
+    try {
+      const sessions = await this.authService.getUserSessions(user.id);
+      return ApiResponses.success(sessions, 'Sessions retrieved');
+    } catch (err: any) {
+      return ApiResponses.error(err.message, {
+        code: 'FETCH_SESSIONS_FAILED',
+        statusCode: 500,
+      });
+    }
+  }
+
+  @Post('logout')
+  @Auth()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout from current device' })
+  @ApiBody({
+    schema: {
+      properties: {
+        refreshToken: { type: 'string', example: 'refresh_token_here' },
+      },
+    },
+  })
+  async logout(
+    @CurrentUser() user: IUser,
+    @Body('refreshToken') refreshToken: string,
+  ) {
+    try {
+      const result = await this.authService.logout(user.id, refreshToken);
+      return ApiResponses.success(result, 'Logged out successfully');
+    } catch (err: any) {
+      return ApiResponses.error(err.message, {
+        code: 'LOGOUT_FAILED',
+        statusCode: 400,
+      });
+    }
+  }
+
+  @Post('logout-all')
+  @Auth()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout from all devices' })
+  async logoutAll(@CurrentUser() user: IUser) {
+    try {
+      const result = await this.authService.logoutAllDevices(user.id);
+      return ApiResponses.success(result, 'Logged out from all devices');
+    } catch (err: any) {
+      return ApiResponses.error(err.message, {
+        code: 'LOGOUT_ALL_FAILED',
+        statusCode: 400,
+      });
+    }
+  }
+
+  @Post('logout-others')
+  @Auth()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout from other devices except current' })
+  @ApiBody({
+    schema: {
+      properties: {
+        refreshToken: { type: 'string', example: 'current_refresh_token' },
+      },
+    },
+  })
+  async logoutOthers(
+    @CurrentUser() user: IUser,
+    @Body('refreshToken') refreshToken: string,
+  ) {
+    try {
+      const result = await this.authService.logoutOtherDevices(
+        user.id,
+        refreshToken,
+      );
+      return ApiResponses.success(result, 'Logged out from other devices');
+    } catch (err: any) {
+      return ApiResponses.error(err.message, {
+        code: 'LOGOUT_OTHERS_FAILED',
+        statusCode: 400,
+      });
+    }
+  }
+
+  @Delete('sessions/:sessionId')
+  @Auth()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a specific session' })
+  @ApiParam({
+    name: 'sessionId',
+    description: 'Session ID to revoke',
+    example: 'ckxyz123abc',
+  })
+  async deleteSession(
+    @CurrentUser() user: IUser,
+    @Param('sessionId') sessionId: string,
+  ) {
+    try {
+      const result = await this.authService.deleteSession(user.id, sessionId);
+      return ApiResponses.success(result, 'Session deleted');
+    } catch (err: any) {
+      return ApiResponses.error(err.message, {
+        code: 'DELETE_SESSION_FAILED',
+        statusCode: 400,
+      });
+    }
+  }
   // REFRESH TOKEN (Public)
   @Public()
   @Post('refresh')

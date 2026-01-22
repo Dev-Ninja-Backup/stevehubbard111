@@ -6,6 +6,8 @@ import { generateTOTPSecret, verifyTOTP, getTOTPAuthUrl } from 'src/utils/totp.u
 import { RegisterDto } from './dto/register.dto';
 import { Roles, UserStatus } from 'prisma/generated/prisma/enums';
 import { OtpUtil } from 'src/utils/otp.util';
+import * as crypto from 'crypto';
+
 
 @Injectable()
 export class AuthService {
@@ -83,36 +85,119 @@ export class AuthService {
       });
     }
 
- //  verify otp
- async verifyOtp(email:string , otp:string, purpose:string){
-    const user = await this.singleUser(email);
-    const isValid = await this.otpUtil.verify(user.id, purpose, otp);
-    if(!isValid){
-        throw new BadRequestException("Otp is not valid")
+  //  verify otp
+  async verifyOtp(email:string , otp:string, purpose:string){
+      const user = await this.singleUser(email);
+      const isValid = await this.otpUtil.verify(user.id, purpose, otp);
+      if(!isValid){
+          throw new BadRequestException("Otp is not valid")
+      }
+      await this.prisma.user.update({
+          where:{
+            id:user.id
+          },
+          data:{
+            emailVerified :true,
+            emailVerifiedAt: new Date()
+          }
+      })
+      // Issue tokens
+      const tokens = await this.issueTokens(user.id);
+      // 
+      return {
+          massage:"Your email verified successfully",
+          tokens
+      }
+  }
+
+
+  // verification mail send 
+  async sendVerificationEmail(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true , emailVerified:true},
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
+
+    if (user.emailVerified) {
+      throw new BadRequestException('Email already verified');
+    }
+
+    // Generate verification token (valid for 24 hours)
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    // Store token in database
+    await this.prisma.emailVerificationToken.create({
+      data: {
+        userId: user.id,
+        token: verificationToken,
+        expiresAt,
+      },
+    });
+
+    // Send email (implement your email service)
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+    
+    // TODO: Implement with your mailer
+    // await this.mailer.sendMail({
+    //   to: user.email,
+    //   subject: 'Verify your Rabbt account',
+    //   template: 'verify-email',
+    //   context: { name: user.name, verificationUrl },
+    // });
+
+    console.log(`Verification email sent to ${user.email}`);
+    console.log(`Verification URL: ${verificationUrl}`);
+
+    return { message: 'Verification email sent' };
+  }
+  
+  // verify email
+  async verifyEmail(token: string) {
+    const verificationToken = await this.prisma.emailVerificationToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!verificationToken) {
+      throw new BadRequestException('Invalid verification token');
+    }
+
+    if (verificationToken.expiresAt < new Date()) {
+      throw new BadRequestException('Verification token has expired');
+    }
+
+    if (verificationToken.user.emailVerified) {
+      throw new BadRequestException('Email already verified');
+    }
+
+    // Update user
     await this.prisma.user.update({
-        where:{
-           id:user.id
-        },
-        data:{
-          emailVerified :true,
-          emailVerifiedAt: new Date()
-        }
-    })
-    // Issue tokens
-    const tokens = await this.issueTokens(user.id);
-    // 
-    return {
-        massage:"Your email verified successfully",
-        tokens
-    }
- }
+      where: { id: verificationToken.userId },
+      data: {
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+      },
+    });
+
+    // Delete used token
+    await this.prisma.emailVerificationToken.delete({
+      where: { id: verificationToken.id },
+    });
+
+    return { message: 'Email verified successfully' };
+  }
 
 
   // LOGIN
  async login(email: string, password: string, ipAddress?: string, userAgent?: string) {
-     
-    // Check rate limiting
+
+  // Check rate limiting
     await this.checkLoginAttempts(email, ipAddress!);
 
     // Find user
@@ -133,9 +218,8 @@ export class AuthService {
 
       // Verify credentials
       const isValidPassword = user && (await verifyPassword(password, user.passwordHash));
-
       // Record attempt
-      await this.recordLoginAttempt(email, ipAddress!, isValidPassword!, userAgent);
+      await this.recordLoginAttempt(email, ipAddress!, isValidPassword? true : false, userAgent);
 
       if (!isValidPassword) {
         throw new UnauthorizedException('Invalid credentials');
@@ -335,7 +419,7 @@ export class AuthService {
     // 
     return { message: '2FA disabled successfully' };
   }
-
+ 
   // GET USER BY ID
   async getUserById(userId: number) {
     const user = await this.prisma.user.findUnique({
@@ -371,29 +455,84 @@ export class AuthService {
     return user;
   }
 
-  // // REFRESH TOKENS
-  // async refreshTokens(refreshToken: string) {
-  //   let payload: any;
+  // password reset
+  async requestPasswordReset(email: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { email },
+      select: { id: true, email: true, name: true },
+    });
 
-  //   try {
-  //     payload = this.jwt.verify(refreshToken);
-  //   } catch (err) {
-  //     throw new UnauthorizedException('Invalid or expired refresh token');
-  //   }
+    // Don't reveal if user exists (security best practice)
+    if (!user) {
+      return { message: 'If the email exists, a reset link has been sent' };
+    }
 
-  //   // Verify user exists and is active
-  //   const user = await this.prisma.user.findUnique({
-  //     where: { id: payload.sub },
-  //     select: { id: true, status: true },
-  //   });
+    // Generate reset token (valid for 1 hour)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1);
 
-  //   if (!user || user.status !== UserStatus.ACTIVE) {
-  //     throw new UnauthorizedException('User not found or inactive');
-  //   }
+    // Delete any existing reset tokens for this user
+    await this.prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id },
+    });
 
-  //   // Issue new tokens
-  //   return this.issueTokens(user.id);
-  // }
+    // Create new reset token
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        token: resetToken,
+        expiresAt,
+      },
+    });
+
+    // Send email
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    
+    // TODO: Implement with your mailer
+    console.log(`Password reset email sent to ${user.email}`);
+    console.log(`Reset URL: ${resetUrl}`);
+
+    return { message: 'If the email exists, a reset link has been sent' };
+  }
+  // 
+  async resetPassword(token: string, newPassword: string) {
+    const resetToken = await this.prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!resetToken) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    if (resetToken.expiresAt < new Date()) {
+      throw new BadRequestException('Reset token has expired');
+    }
+
+    // Hash new password
+    const passwordHash = await hashPassword(newPassword);
+
+    // Update user password
+    await this.prisma.user.update({
+      where: { id: resetToken.userId },
+      data: { passwordHash },
+    });
+
+    // Delete used token
+    await this.prisma.passwordResetToken.delete({
+      where: { id: resetToken.id },
+    });
+
+    // Invalidate all sessions (force re-login)
+    await this.prisma.session.deleteMany({
+      where: { userId: resetToken.userId },
+    });
+
+    return { message: 'Password reset successful' };
+  }
+  
+
   // 
   async getUserSessions(userId: number) {
     const sessions = await this.prisma.session.findMany({
