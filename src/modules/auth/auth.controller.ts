@@ -356,7 +356,7 @@ export class AuthController {
       });
     }
   }
-
+  // 
   @Post('logout-others')
   @Auth()
   @ApiBearerAuth()
