@@ -74,15 +74,22 @@ export class AuthService {
           },
         });
 
-        // Generate OTP (outside DB, but tied to user)
-        const otp = await this.otpUtil.generate(user.id, 'register');
-
-        // Return result
-        return {
-          user,
-          otp, // send via email/SMS later
-        };
+        if(user){
+            // Generate OTP (outside DB, but tied to user)
+            const otp = await this.otpUtil.generate(user.id, 'register');
+            // Return result
+            return {
+              user,
+              otp, // send via email/SMS later
+            };
+        }
       });
+      // 
+          // send verification to mail
+    // await this.sendVerificationEmail(user.id);
+
+
+
     }
 
   //  verify otp
@@ -650,44 +657,44 @@ export class AuthService {
 
 
 
-    // 4. RATE LIMITING FOR LOGIN ATTEMPTS
-    async checkLoginAttempts(email: string, ipAddress: string) {
-      // 
-      const securitySettings = await this.prisma.securitySetting.findFirst();
-      const maxAttempts = securitySettings?.maxLoginAttempts || 5;
-      const lockoutDuration = securitySettings?.accountLockoutDuration || 30; // minutes
-
-      // Check login attempts in last 15 minutes
-      const fifteenMinutesAgo = new Date();
-      fifteenMinutesAgo.setMinutes(fifteenMinutesAgo.getMinutes() - 15);
-
-      const recentAttempts = await this.prisma.loginAttempt.count({
-        where: {
-          email,
-          ipAddress,
-          createdAt: { gte: fifteenMinutesAgo },
-          success: false,
-        },
-      });
-
-      if (recentAttempts >= maxAttempts) {
-        throw new UnauthorizedException(
-          `Too many failed login attempts. Please try again in ${lockoutDuration} minutes.`
-        );
-      }
-    }
-    
+  // 4. RATE LIMITING FOR LOGIN ATTEMPTS
+  async checkLoginAttempts(email: string, ipAddress: string) {
     // 
-    async recordLoginAttempt(email: string, ipAddress: string, success: boolean, userAgent?: string) {
-      await this.prisma.loginAttempt.create({
-        data: {
-          email,
-          ipAddress,
-          userAgent,
-          success,
-        },
-      });
+    const securitySettings = await this.prisma.securitySetting.findFirst();
+    const maxAttempts = securitySettings?.maxLoginAttempts || 5;
+    const lockoutDuration = securitySettings?.accountLockoutDuration || 30; // minutes
+
+    // Check login attempts in last 15 minutes
+    const fifteenMinutesAgo = new Date();
+    fifteenMinutesAgo.setMinutes(fifteenMinutesAgo.getMinutes() - 15);
+
+    const recentAttempts = await this.prisma.loginAttempt.count({
+      where: {
+        email,
+        ipAddress,
+        createdAt: { gte: fifteenMinutesAgo },
+        success: false,
+      },
+    });
+
+    if (recentAttempts >= maxAttempts) {
+      throw new UnauthorizedException(
+        `Too many failed login attempts. Please try again in ${lockoutDuration} minutes.`
+      );
     }
+  }
+  
+  // 
+  async recordLoginAttempt(email: string, ipAddress: string, success: boolean, userAgent?: string) {
+    await this.prisma.loginAttempt.create({
+      data: {
+        email,
+        ipAddress,
+        userAgent,
+        success,
+      },
+    });
+  }
 
 
 
@@ -696,8 +703,6 @@ export class AuthService {
       if (!process.env.JWT_SECRET) {
         throw new Error('JWT_SECRET is not defined');
       }
-    // const payload = { sub: userId };
-
     // 
     const accessToken = await this.jwt.sign(
       { sub: userId },

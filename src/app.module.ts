@@ -8,6 +8,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { HealthModule } from './health/health.module.js';
 import { OtpUtil } from './utils/otp.util';
+import { UsersModule } from './modules/admin/users/users.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { OtpUtil } from './utils/otp.util';
     HealthModule,
     AuthModule,
     RedisModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [
